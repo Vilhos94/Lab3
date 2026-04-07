@@ -54,7 +54,7 @@ jobs:
 
   # 3. Onnittelukommentti käyttäjän ensimmäiseen PR;ään.
   welcome_first_pull_request:
-    if: github.event_name == 'pull_request' && github.event.action == 'opened' && (github.event.pull_request.author_association == 'FIRST_TIMER' || github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR')
+    if: github.event_name == 'pull_request' && github.event.action == 'opened' && github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
     runs-on: ubuntu-latest
     permissions:
       issues: write
