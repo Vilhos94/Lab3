@@ -1,0 +1,95 @@
+name: GitHub Automations
+on:
+  issues:
+    types: [opened, reopened, closed]
+  pull_request:
+    types: [opened]
+
+jobs:
+  # 1. Kun issue avataan tai avataan uudelleen
+  label_and_comment_new_issues:
+    if: github.event_name == 'issues' && (github.event.action == 'opened' || github.event.action == 'reopened')
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Attach label to issues
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.addLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ["issue", "fix"]
+            })
+      - name: Comment on new issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: "Thanks for opening this issue! We'll take a look as soon as possible."
+            })
+
+  # 2. Issuensulku
+  comment_on_closed_issues:
+    if: github.event_name == 'issues' && github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Issuensulkukommentti
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: 'The issue is now resolved.'
+            })
+
+  # 3. Onnittelukommentti käyttäjän ensimmäiseen PR;ään.
+  welcome_first_pull_request:
+    if: github.event_name == 'pull_request' && github.event.action == 'opened' && (github.event.pull_request.author_association == 'FIRST_TIMER' || github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR')
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Ensimmäisen PR:n onnittelu
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Hakuun PR Käyttäjänimi
+            const creator = context.payload.sender.login;
+            
+            // Etsitään kaikki tämän käyttäjän tekemät issuet/PR:t tässä repossa
+            const opts = github.rest.issues.listForRepo.endpoint.merge({
+              ...context.issue,
+              creator,
+              state: 'all'
+            });
+            const issues = await github.paginate(opts);
+
+            
+            for (const issue of issues) {
+              if (issue.number === context.issue.number) {
+                continue;
+              }
+              if (issue.pull_request) {
+                console.log('Käyttäjä on tehnyt PR:n aiemminkin. Ei onnitella.');
+                return; 
+              }
+            }
+
+            
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `Congratulations @${creator} on opening your first pull request!`
+            });
